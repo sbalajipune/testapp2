@@ -18,8 +18,6 @@ node("maven") {
 			echo "Pushing artifact to Nexux ${params.NEXUS_URL}"
 			// deploy
             sh "${mvnCmd} deploy -Dnexus.url=${params.NEXUS_URL}"
-            // extract info from pom.xml to build NEXUS_ARTIFACT_PATH
-            def pom = readMavenPom file: "pom.xml"
             // global variable
             APP_VERSION = pom.version
             def artifactId = pom.artifactId
