@@ -63,6 +63,17 @@
         </dependency>
 	</dependencies>
 
+	<distributionManagement>
+		<snapshotRepository>
+			<id>nexus-snapshots</id>
+			<url>${nexus.url}/nexus/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>nexus-releases</id>
+			<url>${nexus.url}/nexus/content/repositories/releases</url>
+		</repository>
+	</distributionManagement>
+	
 	<build>
 		<finalName>${project.artifactId}</finalName>
 		<plugins>
