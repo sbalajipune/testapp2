@@ -13,10 +13,7 @@ node("maven") {
 			def mvnCmd = "mvn -s ${WORKSPACE}/cicd/cicd/maven/settings.xml"
             // extract info from pom.xml
             def pom = readMavenPom file: "${params.APP_NAME}/pom.xml"
-			sh "cd member-service"
-			sh "ls -ltr"
-			sh "pwd"
-            sh "${mvnCmd} clean package -DskipTests"
+			sh "${mvnCmd} clean package -DskipTests -f ${params.APP_NAME}/pom.xml"
         }
     }
 
