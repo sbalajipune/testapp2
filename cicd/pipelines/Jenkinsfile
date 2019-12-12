@@ -19,7 +19,7 @@ node("maven") {
             // Get source code from repository
             git "${params.CICD_GIT_URL}"
             // extract info from pom.xml
-            def pom = readMavenPom file: "${params.APP_NAME}/pom.xml"
+            //def pom = readMavenPom file: "${params.APP_NAME}/pom.xml"
 			cd member-service
             sh "${mvnCmd} clean package -DskipTests"
         }
