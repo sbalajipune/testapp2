@@ -1,0 +1,86 @@
+{
+	"info": {
+		"_postman_id": "a1b88ae8-bbc9-47a8-bada-ef857c113136",
+		"name": "apartment-service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "healthcheck",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "f723c3e2-d8cd-49e8-b536-67aa39a7e4b2",
+						"exec": [
+							"if (responseCode.code === 200){",
+							"    // Check if the status code is 200",
+							"    tests[\"Status code is 200\"] = true;",
+							"}",
+							"else",
+							"{",
+							"    tests[\"Status code is: \" + responseCode.code] = false;",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}/apartments/healthcheck",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"apartments",
+						"healthcheck"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getApartments",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "d8edfc5e-05ec-4e1e-b047-0b4337058f4b",
+						"exec": [
+							"if (responseCode.code === 200){",
+							"    // Check if the status code is 200",
+							"    tests[\"Status code is 200\"] = true;",
+							"}",
+							"else",
+							"{",
+							"    tests[\"Status code is: \" + responseCode.code] = false;",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}/apartments/",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"apartments",
+						""
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}

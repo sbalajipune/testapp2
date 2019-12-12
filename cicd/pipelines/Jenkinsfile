@@ -1,0 +1,62 @@
+try {
+ timeout(time: 20, unit: 'MINUTES') {
+	  node('maven') {
+		stage('build') {
+          openshift.withCluster() {
+             openshift.withProject() {
+                def bld = openshift.startBuild(params.APP_NAME)
+                bld.untilEach {
+                  return it.object().status.phase == "Running"
+                }
+                bld.logs('-f')
+             }
+          }
+        }
+        stage('deploy') {
+          openshift.withCluster() {
+            openshift.withProject() {
+              def dc = openshift.selector('dc', params.APP_NAME)
+              dc.rollout().latest()
+            }
+          }
+        }
+	  }
+	  node("nodejs") {
+		// download and configure all common cicd stuff
+        dir('cicd') {
+            git "${params.CICD_GIT_URL}"
+            // load groovy functions
+            newman = load 'cicd/pipelines/functions/newman.groovy'
+        }
+		stage("Integration tests in DEV") {
+              newman.runTest("cicd/${params.APP_NAME}/tests/${params.APP_NAME}.postman_collection.json", "cicd/${params.APP_NAME}/tests/dev.postman_environment.json")
+        }
+		
+		/*stage('Approval required for deployment to test') {
+			input "Deployment to Test Env: Ready to deploy ${params.TEST_PROJECT} project with application ${params.APP_NAME}?"
+		}
+		
+		stage('deploy to test env') {
+          openshift.withCluster() {
+            openshift.withProject(params.TEST_PROJECT) {
+              def dc = openshift.selector('dc', params.APP_NAME)
+              dc.rollout().latest()
+            }
+          }
+        }
+		
+		stage("Integration tests in TEST") {
+			openshift.withCluster() {
+				openshift.withProject(params.TEST_PROJECT) {
+					newman.runTest("cicd/${params.APP_NAME}/tests/${params.APP_NAME}.postman_collection.json", "cicd/${params.APP_NAME}/tests/dev.postman_environment.json")
+				}
+			}
+        }*/
+      }
+    }
+} catch (err) {
+ echo "in catch block"
+ echo "Caught: ${err}"
+ currentBuild.result = 'FAILURE'
+ throw err
+}

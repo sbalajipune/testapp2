@@ -1,0 +1,16 @@
+[
+  {
+    "registrationId": "MH12KJ0650",
+    "ownerId": "B-1002-1",
+    "parkingId": "B-40",
+    "model": "Toyota ETIOS",
+    "wheelsType": "Four Wheeler"
+  },
+  {
+    "registrationId": "MH12LZ9915",
+    "ownerId": "B-1002-2",
+    "parkingId": "B-40",
+    "model": "Suzuki Access",
+    "wheelsType": "Two Wheeler"
+  }
+]

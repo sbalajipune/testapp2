@@ -1,0 +1,86 @@
+{
+	"info": {
+		"_postman_id": "c88cd892-48ab-469b-accf-4fa2d6177fe0",
+		"name": "parking-service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "healthcheck",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "e3e3dff2-38ee-43d6-8c4a-e6021e69a7db",
+						"exec": [
+							"if (responseCode.code === 200){",
+							"    // Check if the status code is 200",
+							"    tests[\"Status code is 200\"] = true;",
+							"}",
+							"else",
+							"{",
+							"    tests[\"Status code is: \" + responseCode.code] = false;",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}/parkings/healthcheck",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"parkings",
+						"healthcheck"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getParkings",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "a966738e-18f4-4230-9341-808d6a9c180e",
+						"exec": [
+							"if (responseCode.code === 200){",
+							"    // Check if the status code is 200",
+							"    tests[\"Status code is 200\"] = true;",
+							"}",
+							"else",
+							"{",
+							"    tests[\"Status code is: \" + responseCode.code] = false;",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}/parkings/",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"parkings",
+						""
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}

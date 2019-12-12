@@ -1,0 +1,616 @@
+apiVersion: v1
+kind: Template
+labels:
+  demo: societyapp-template
+metadata:
+  annotations:
+    description: Society Application Spring Boot Template
+    iconClass: icon-java
+    tags: microservice,spring
+  name: societyapp-template
+objects:
+####################Member-service#############################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${MEMBER_APP_NAME}
+    labels:
+      application: ${MEMBER_APP_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: ${MEMBER_APP_NAME}
+    strategy:
+      resources: {}
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          application: ${MEMBER_APP_NAME}
+          deploymentconfig: ${MEMBER_APP_NAME}
+        name: ${MEMBER_APP_NAME}
+      spec:
+        containers:
+        - env:
+          - name: POSTGRES_HOST
+            value: ${POSTGRES_HOST}
+          - name: POSTGRES_DB
+            value: ${POSTGRES_DB}
+          - name: POSTGRES_USER
+            value: ${POSTGRES_USER}
+          - name: POSTGRES_PASSWORD
+            value: ${POSTGRES_PASSWORD}
+          image: ${MEMBER_APP_NAME}
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /members/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: ${MEMBER_APP_NAME}
+          ports:
+          - containerPort: 8778
+            name: jolokia
+            protocol: TCP
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /members/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: false
+        containerNames:
+        - ${MEMBER_APP_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${MEMBER_APP_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${MEMBER_APP_NAME}
+      application: ${MEMBER_APP_NAME}
+    name: ${MEMBER_APP_NAME}
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deploymentconfig: ${MEMBER_APP_NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      application: ${MEMBER_APP_NAME}
+    name: ${MEMBER_APP_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${MEMBER_APP_NAME}
+      weight: 100
+#####################Vehicle Service########################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${VEHICLE_APP_NAME}
+    labels:
+      application: ${VEHICLE_APP_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: ${VEHICLE_APP_NAME}
+    strategy:
+      resources: {}
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          application: ${VEHICLE_APP_NAME}
+          deploymentconfig: ${VEHICLE_APP_NAME}
+        name: ${VEHICLE_APP_NAME}
+      spec:
+        containers:
+        - env:
+          - name: POSTGRES_HOST
+            value: ${POSTGRES_HOST}
+          - name: POSTGRES_DB
+            value: ${POSTGRES_DB}
+          - name: POSTGRES_USER
+            value: ${POSTGRES_USER}
+          - name: POSTGRES_PASSWORD
+            value: ${POSTGRES_PASSWORD}
+          image: ${VEHICLE_APP_NAME}
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /vehicles/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: ${VEHICLE_APP_NAME}
+          ports:
+          - containerPort: 8778
+            name: jolokia
+            protocol: TCP
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /vehicles/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: false
+        containerNames:
+        - ${VEHICLE_APP_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${VEHICLE_APP_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${VEHICLE_APP_NAME}
+      application: ${VEHICLE_APP_NAME}
+    name: ${VEHICLE_APP_NAME}
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deploymentconfig: ${VEHICLE_APP_NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      application: ${VEHICLE_APP_NAME}
+    name: ${VEHICLE_APP_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${VEHICLE_APP_NAME}
+      weight: 100
+#########################Parking-Service########################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${PARKING_APP_NAME}
+    labels:
+      application: ${PARKING_APP_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: ${PARKING_APP_NAME}
+    strategy:
+      resources: {}
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          application: ${PARKING_APP_NAME}
+          deploymentconfig: ${PARKING_APP_NAME}
+        name: ${PARKING_APP_NAME}
+      spec:
+        containers:
+        - env:
+          - name: POSTGRES_HOST
+            value: ${POSTGRES_HOST}
+          - name: POSTGRES_DB
+            value: ${POSTGRES_DB}
+          - name: POSTGRES_USER
+            value: ${POSTGRES_USER}
+          - name: POSTGRES_PASSWORD
+            value: ${POSTGRES_PASSWORD}
+          image: ${MEMBER_APP_NAME}
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /parkings/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: ${PARKING_APP_NAME}
+          ports:
+          - containerPort: 8778
+            name: jolokia
+            protocol: TCP
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /parkings/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: false
+        containerNames:
+        - ${PARKING_APP_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${PARKING_APP_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${PARKING_APP_NAME}
+      application: ${PARKING_APP_NAME}
+    name: ${PARKING_APP_NAME}
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deploymentconfig: ${PARKING_APP_NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      application: ${PARKING_APP_NAME}
+    name: ${PARKING_APP_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${PARKING_APP_NAME}
+      weight: 100
+#######################Apartment-service##########################
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${APARTMENT_APP_NAME}
+    labels:
+      application: ${APARTMENT_APP_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: ${APARTMENT_APP_NAME}
+    strategy:
+      resources: {}
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          application: ${APARTMENT_APP_NAME}
+          deploymentconfig: ${APARTMENT_APP_NAME}
+        name: ${APARTMENT_APP_NAME}
+      spec:
+        containers:
+        - env:
+          - name: POSTGRES_HOST
+            value: ${POSTGRES_HOST}
+          - name: POSTGRES_DB
+            value: ${POSTGRES_DB}
+          - name: POSTGRES_USER
+            value: ${POSTGRES_USER}
+          - name: POSTGRES_PASSWORD
+            value: ${POSTGRES_PASSWORD}
+          image: ${APARTMENT_APP_NAME}
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /apartments/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: ${APARTMENT_APP_NAME}
+          ports:
+          - containerPort: 8778
+            name: jolokia
+            protocol: TCP
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /apartments/healthcheck
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: false
+        containerNames:
+        - ${APARTMENT_APP_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APARTMENT_APP_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: ${APARTMENT_APP_NAME}
+      application: ${APARTMENT_APP_NAME}
+    name: ${APARTMENT_APP_NAME}
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deploymentconfig: ${APARTMENT_APP_NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      application: ${APARTMENT_APP_NAME}
+    name: ${APARTMENT_APP_NAME}
+  spec:
+    to:
+      kind: Service
+      name: ${APARTMENT_APP_NAME}
+      weight: 100
+############################Postgresql######################
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      application: ${POSTGRES_HOST}
+    name: ${POSTGRES_HOST}
+  spec:
+    ports:
+    - port: 5432
+      targetPort: 5432
+    selector:
+      deploymentconfig: ${POSTGRES_HOST}
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: ${POSTGRES_HOST}
+    labels:
+      application: ${POSTGRES_HOST}
+  spec:
+    replicas: 1
+    selector:
+      deploymentconfig: ${POSTGRES_HOST}
+    strategy:
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          application: ${POSTGRES_HOST}
+          deploymentconfig: ${POSTGRES_HOST}
+        name: ${POSTGRES_HOST}
+      spec:
+        containers:
+        - env:
+          - name: POSTGRESQL_USER
+            value: ${POSTGRES_USER}
+          - name: POSTGRESQL_PASSWORD
+            value: ${POSTGRES_PASSWORD}
+          - name: POSTGRESQL_DATABASE
+            value: ${POSTGRES_DB}
+          image: postgresql
+          imagePullPolicy: Always
+          name: ${POSTGRES_HOST}
+          ports:
+          - containerPort: 5432
+            protocol: TCP
+          volumeMounts:
+          - mountPath: /var/lib/pgsql/data
+            name: ${POSTGRES_HOST}-data
+          livenessProbe:
+            initialDelaySeconds: 30
+            failureThreshold: 10
+            periodSeconds: 10
+            tcpSocket:
+              port: 5432
+            timeoutSeconds: 1
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - psql -h 127.0.0.1 -U $POSTGRESQL_USER -q -d $POSTGRESQL_DATABASE -c 'SELECT 1'
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 10
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 256Mi
+        terminationGracePeriodSeconds: 60
+        volumes:
+        - name: ${POSTGRES_HOST}-data
+          emptyDir: {}
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${POSTGRES_HOST}
+        from:
+          kind: ImageStreamTag
+          name: postgresql:latest
+          namespace: openshift
+      type: ImageChange
+    - type: ConfigChange
+###################Parameters####################
+parameters:
+- description: society app name.
+  displayName: Name
+  name: APP_NAME
+  required: true
+  value: societyapp
+- description: member-service app name.
+  displayName: Name
+  name: MEMBER_APP_NAME
+  required: true
+  value: member-service
+- description: vehicle-service app name.
+  displayName: Name
+  name: VEHICLE_APP_NAME
+  required: true
+  value: vehicles-service
+- description: parking-service app name.
+  displayName: Name
+  name: PARKING_APP_NAME
+  required: true
+  value: parking-service
+- description: apartment-service app name.
+  displayName: Name
+  name: APARTMENT_APP_NAME
+  required: true
+  value: apartment-service
+- description: The URL of the repository with application source code.
+  displayName: Git Repository URL
+  name: SOURCE_REPOSITORY_URL
+  required: true
+  value: https://github.com/sbalajipune/testapp.git
+- displayName: PROSTGRESQL Database Service Name
+  name: POSTGRES_HOST
+  required: true
+  value: postgresql
+- displayName: Database Name
+  name: POSTGRES_DB
+  required: true
+  value: societydb
+- description: Username for PROSTGRESQL user that will be used for accessing the database.
+  displayName: PROSTGRESQL Username
+  from: user[A-Z0-9]{3}
+  generate: expression
+  name: POSTGRES_USER
+- description: Password for the PROSTGRESQL user.
+  displayName: PROSTGRESQL Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: POSTGRES_PASSWORD
+- description: Maximum amount of memory the container can use.
+  displayName: Memory Limit
+  name: MEMORY_LIMIT
+  required: true
+  value: 512Mi
+- description: Maximum amount of memory the POSTGRESQL container can use.
+  displayName: Memory Limit (POSTGRESQL)
+  name: MEMORY_POSTGRESQL_LIMIT
+  required: true
+  value: 512Mi
+- description: Set this to a branch name, tag or other ref of your repository if you
+    are not using the default branch.
+  displayName: Git Reference
+  name: SOURCE_REPOSITORY_REF
+  value: master
+- description: Set this to the relative path to your project if it is not in the root
+    of your repository.
+  displayName: Context Directory
+  name: MEMBER_CONTEXT_DIR
+  value: member-service
+- description: Set this to the relative path to your project if it is not in the root
+    of your repository.
+  displayName: Context Directory
+  name: VEHICLE_CONTEXT_DIR
+  value: vehicles-service
+- description: Set this to the relative path to your project if it is not in the root
+    of your repository.
+  displayName: Context Directory
+  name: PARKING_CONTEXT_DIR
+  value: parking-service
+- description: Set this to the relative path to your project if it is not in the root
+    of your repository.
+  displayName: Context Directory
+  name: APARTMENT_CONTEXT_DIR
+  value: apartment-service
+- description: Github trigger secret.  A difficult to guess string encoded as part of the webhook URL.  Not encrypted.
+  displayName: GitHub Webhook Secret
+  from: '[a-zA-Z0-9]{40}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+- description: A secret string used to configure the Generic webhook.
+  displayName: Generic Webhook Secret
+  from: '[a-zA-Z0-9]{40}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+- description: The OpenShift Namespace where the openjdk and POSTGRESQL DB ImageStreams reside.
+  displayName: Namespace
+  name: NAMESPACE
+  required: true
+  value: openshift
