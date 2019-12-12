@@ -1,62 +1,236 @@
-try {
- timeout(time: 20, unit: 'MINUTES') {
-	  node('maven') {
-		stage('build') {
-          openshift.withCluster() {
-             openshift.withProject() {
-                def bld = openshift.startBuild(params.APP_NAME)
-                bld.untilEach {
-                  return it.object().status.phase == "Running"
-                }
-                bld.logs('-f')
-             }
-          }
-        }
-        stage('deploy') {
-          openshift.withCluster() {
-            openshift.withProject() {
-              def dc = openshift.selector('dc', params.APP_NAME)
-              dc.rollout().latest()
-            }
-          }
-        }
-	  }
-	  node("nodejs") {
-		// download and configure all common cicd stuff
-        dir('cicd') {
-            git "${params.CICD_GIT_URL}"
-            // load groovy functions
-            newman = load 'cicd/pipelines/functions/newman.groovy'
-        }
-		stage("Integration tests in DEV") {
-              newman.runTest("cicd/${params.APP_NAME}/tests/${params.APP_NAME}.postman_collection.json", "cicd/${params.APP_NAME}/tests/dev.postman_environment.json")
-        }
-		
-		/*stage('Approval required for deployment to test') {
-			input "Deployment to Test Env: Ready to deploy ${params.TEST_PROJECT} project with application ${params.APP_NAME}?"
-		}
-		
-		stage('deploy to test env') {
-          openshift.withCluster() {
-            openshift.withProject(params.TEST_PROJECT) {
-              def dc = openshift.selector('dc', params.APP_NAME)
-              dc.rollout().latest()
-            }
-          }
-        }
-		
-		stage("Integration tests in TEST") {
-			openshift.withCluster() {
-				openshift.withProject(params.TEST_PROJECT) {
-					newman.runTest("cicd/${params.APP_NAME}/tests/${params.APP_NAME}.postman_collection.json", "cicd/${params.APP_NAME}/tests/dev.postman_environment.json")
-				}
-			}
-        }*/
-      }
+node("maven") {
+
+    // download and configure all common cicd stuff		 
+    dir('cicd') {
+        // download all cicd required files		
+        git "${params.CICD_GIT_URL}"
+        // load openshift-utils functions (using this path as convention.. define a env var if desired...)		
+        openshiftUtils = load 'cicd/pipelines/functions/openshift-utils.groovy'
+        // load groovy functions		
+        newman = load 'cicd/pipelines/functions/newman.groovy'
+
     }
-} catch (err) {
- echo "in catch block"
- echo "Caught: ${err}"
- currentBuild.result = 'FAILURE'
- throw err
+    // define maven with custom settings.xml (using this path as convention.. define a env var if desired...)
+    def mvnCmd = "mvn -s ${WORKSPACE}/cicd/cicd/maven/settings.xml"
+
+    stage("Maven build") {
+
+        dir('app') {
+            // Get source code from repository
+            git "${params.CICD_GIT_URL}"
+            // extract info from pom.xml
+            def pom = readMavenPom file: "${params.APP_NAME}/pom.xml"
+            sh "${mvnCmd} clean package -DskipTests"
+        }
+    }
+
+    stage("Unit Testing & Analysis") {
+
+        dir('app') {
+            parallel(
+                'Test': {
+                    sh "${mvnCmd} test"
+                    step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+                },
+                'Static Analysis': {
+                    sh "${mvnCmd} sonar:sonar -Dsonar.host.url=${params.SONAR_URL} -DskipTests=true"
+                }
+            )
+        }
+    }
+
+    stage("Push artifact to Nexus") {
+
+        echo "Pushing artifact to Nexux ${params.NEXUS_URL}"
+        dir('app') {
+            // deploy
+            sh "${mvnCmd} deploy -Dnexus.url=${params.NEXUS_URL}"
+            // extract info from pom.xml to build NEXUS_ARTIFACT_PATH
+            def pom = readMavenPom file: "pom.xml"
+            // global variable
+            APP_VERSION = pom.version
+            def artifactId = pom.artifactId
+            def groupId = pom.groupId.replace(".", "/")
+            def packaging = pom.packaging
+            NEXUS_ARTIFACT_PATH = "${groupId}/${artifactId}/${APP_VERSION}/${artifactId}-${APP_VERSION}.${packaging}"
+        }
+
+    }
+}
+
+node("nodejs") {
+
+    // get app template back
+    unstash "app-template"
+
+    stage("Build in Openshift") {
+
+        // no need to define a cluster if we have just one defined and it is the one where Jenkins is running 
+        openshift.withCluster() {
+
+            openshiftUtils.createProject(params.DEV_PROJECT, params.JENKINS_PROJECT, params.IMAGESTREAM_PROJECT)
+            openshiftUtils.applyTemplate(params.DEV_PROJECT, "${params.APP_TEMPLATE}", params.APP_NAME, APP_VERSION, params.IMAGESTREAM_PROJECT, params.APP_NAME, "${params.CUSTOM_TEMPLATE_PARAMETERS}", [])
+            openshiftUtils.addVersionLabels(params.DEV_PROJECT, "dc", params.APP_NAME, x)
+            openshiftUtils.startBuildFromFile(params.DEV_PROJECT, params.APP_NAME, "${params.NEXUS_URL}${params.NEXUS_RELEASE_REPOSITORY}/${NEXUS_ARTIFACT_PATH}", true)
+        }
+    }
+
+
+    stage("Deploy in *${params.DEV_PROJECT}*") {
+
+        openshift.withCluster() {
+
+            openshiftUtils.deploy(params.DEV_PROJECT, params.APP_NAME)
+        }
+    }
+
+    stage("Integration tests in *${params.DEV_PROJECT}*") {
+
+        newman.runTest(params.POSTMAN_TESTS_COLLECTION, params.POSTMAN_DEV_ENVIRONMENT_CONFIG)
+
+    }
+
+    stage("Deploy in *${params.TEST_PROJECT}*") {
+
+        openshift.withCluster() {
+
+            openshiftUtils.createProject(params.TEST_PROJECT, params.JENKINS_PROJECT, params.IMAGESTREAM_PROJECT)
+            // tag image
+            openshift.tag("${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${APP_VERSION}", "${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${params.TEST_TAG}")
+            openshiftUtils.applyTemplate(params.TEST_PROJECT, "${params.APP_TEMPLATE}", params.APP_NAME, params.TEST_TAG, params.IMAGESTREAM_PROJECT, params.APP_NAME, "${params.CUSTOM_TEMPLATE_PARAMETERS}", ["BuildConfig", "ImageStream"])
+            openshiftUtils.addVersionLabels(params.TEST_PROJECT, "dc", params.APP_NAME, APP_VERSION)
+            openshiftUtils.deploy(params.TEST_PROJECT, params.APP_NAME)
+        }
+    }
+
+    stage("Integration tests in *${params.TEST_PROJECT}*") {
+
+        newman.runTest(params.POSTMAN_TESTS_COLLECTION, params.POSTMAN_TEST_ENVIRONMENT_CONFIG)
+
+    }
+
+    stage('Approval required') {
+        // TODO send notification
+        input "Blue/Green deployment: Ready to update ${params.PROD_PROJECT} project with application ${params.APP_NAME} version ${APP_VERSION}?"
+    }
+
+    stage("Deploy Blue/Green in *${params.PROD_PROJECT}*") {
+
+        openshift.withCluster() {
+
+            openshiftUtils.createProject(params.PROD_PROJECT, params.JENKINS_PROJECT, params.IMAGESTREAM_PROJECT)
+            // tag image
+            openshift.tag("${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${params.TEST_TAG}", "${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${params.PROD_TAG}")
+            openshift.withProject(params.PROD_PROJECT) {
+                redeploy = openshift.selector("dc", params.APP_NAME).exists()
+            }
+            if (redeploy) {
+                echo "Deploying new pods under alternate route"
+                // create alternate deployment with new version
+                openshiftUtils.applyTemplate(params.PROD_PROJECT, "${params.APP_TEMPLATE}", "${params.APP_NAME}-alternate", params.PROD_TAG, params.IMAGESTREAM_PROJECT, params.APP_NAME, "${params.CUSTOM_TEMPLATE_PARAMETERS}", ["BuildConfig", "ImageStream"])
+                openshiftUtils.deploy(params.PROD_PROJECT, "${params.APP_NAME}-alternate")
+            } else {
+                echo "First time deployment"
+                // first time deployment
+                openshiftUtils.applyTemplate(params.PROD_PROJECT, "${params.APP_TEMPLATE}", params.APP_NAME, params.PROD_TAG, params.IMAGESTREAM_PROJECT, params.APP_NAME, "${params.CUSTOM_TEMPLATE_PARAMETERS}", ["BuildConfig", "ImageStream"])
+                openshiftUtils.addVersionLabels(params.PROD_PROJECT, "dc", params.APP_NAME, APP_VERSION)
+                openshiftUtils.deploy(params.PROD_PROJECT, params.APP_NAME)
+            }
+        }
+    }
+
+    stage("Integration tests against alternate pods in *${params.PROD_PROJECT}*") {
+        if (redeploy) {
+            try {
+                newman.runTest(params.POSTMAN_TESTS_COLLECTION, params.POSTMAN_ALTPROD_ENVIRONMENT_CONFIG)
+                // alternate pods passed all tests, so add new pods to production as Blue/Green routing
+                openshiftUtils.addAlternateService(params.PROD_PROJECT, params.APP_NAME, "${params.APP_NAME}-alternate", 20)
+             } catch (Exception) {
+                // tests failed. so tag image back to previous version (current one in production)
+                openshift.withProject(params.PROD_PROJECT) {
+                    // tag image back to current version of pods in production
+                    def p = openshift.selector("dc", params.APP_NAME)
+                    if (p != null && p.exists()) {
+                        def currentVersion = p.object().metadata.labels[params.APP_NAME + '-current-version']
+                        echo "Current version is ${currentVersion}"
+                        openshift.tag("${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${currentVersion}", "${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${params.PROD_TAG}")
+                    }
+                }
+                // mark pipeline execution as FAILURE
+                currentBuild.result = 'FAILURE'
+                error('Test failed, new application pods are kept but traffic is only accesible from the alternate route')
+            }
+        } else {
+            // no need to be managed inside a try/catch since it is the first deployment, so it cannot be rolled back
+            newman.runTest(params.POSTMAN_TESTS_COLLECTION, params.POSTMAN_PROD_ENVIRONMENT_CONFIG)
+        }
+
+    }
+
+    stage('Approval required') {
+        // TODO send notification
+        openshift.withProject(params.PROD_PROJECT) {
+            def deployAndRollback = false
+            def currentVersion = null
+            def p = openshift.selector("dc", params.APP_NAME)
+            if (p != null && p.exists()) {
+                currentVersion = p.object().metadata.labels[params.APP_NAME + '-current-version']
+                echo "Current version is ${currentVersion}"
+                echo "New version is ${APP_VERSION}"
+                if (currentVersion != null && currentVersion != APP_VERSION) {
+                    deployAndRollback = true
+                }
+            }
+            echo "DeployAndRollback is ${deployAndRollback}"
+            if (deployAndRollback) {
+                def deployChoice = "Deploy"
+                def rollbackChoice = "Rollback"
+                def choice = input message: "Full deployment: Ready to update ${params.PROD_PROJECT} project with application ${params.APP_NAME}. Do you want to deploy new version ${APP_VERSION} or continue with version ${currentVersion}?",
+                    parameters: [choice(name: 'Action', choices: "${deployChoice}\n${rollbackChoice}")]
+                if (choice == rollbackChoice) {
+                    openshift.tag("${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${currentVersion}", "${params.IMAGESTREAM_PROJECT}/${params.APP_NAME}:${params.PROD_TAG}")
+                    echo "Rollback application ${params.APP_NAME} to version ${currentVersion}"
+                    // modify APP_VERSION to the rollback version
+                    APP_VERSION = currentVersion
+                }
+            } else {
+                input "Full deployment: Ready to update ${params.PROD_PROJECT} project with application ${params.APP_NAME} version ${APP_VERSION}? "
+            }
+        }
+    }
+
+    stage("Full deploy in *${params.PROD_PROJECT}*") {
+
+        openshift.withCluster() {
+
+            if (redeploy) {
+                echo "Executing full deployment"
+                openshiftUtils.applyTemplate(params.PROD_PROJECT, "${params.APP_TEMPLATE}", "${params.APP_NAME}", params.PROD_TAG, params.IMAGESTREAM_PROJECT, params.APP_NAME, "${params.CUSTOM_TEMPLATE_PARAMETERS}", ["BuildConfig", "ImageStream"])
+                openshiftUtils.addVersionLabels(params.PROD_PROJECT, "dc", params.APP_NAME, APP_VERSION)
+                openshiftUtils.deploy(params.PROD_PROJECT, "${params.APP_NAME}")
+                openshiftUtils.resetAlternateService(params.PROD_PROJECT, params.APP_NAME)
+                openshift.withProject(params.PROD_PROJECT) {
+                    openshift.selector("dc", "${params.APP_NAME}-alternate").delete()
+                    openshift.selector("svc", "${params.APP_NAME}-alternate").delete()
+                }
+            } else {
+                echo "No need to update any deployment.. since it has been the first one"
+            }
+        }
+    }
+
+    stage("Integration tests in *${params.PROD_PROJECT}*") {
+        try {
+            newman.runTest(params.POSTMAN_TESTS_COLLECTION, params.POSTMAN_PROD_ENVIRONMENT_CONFIG)
+        } catch (Exception e) {
+            def succeeded = openshiftUtils.rollback(project, params.APP_NAME, params.IMAGESTREAM_PROJECT)
+            if (succeeded) {
+                error('Integration tests in project ${params.PROD_PROJECT} failed. Automatic rollback has been performed. Check tests output in log for more details')
+            } else {
+                error('Integration tests in project ${params.PROD_PROJECT} failed but automatic rollback could not be performed. Check log for more details')
+            }
+            currentBuild.result = 'FAILURE'
+        }
+    }
+
 }

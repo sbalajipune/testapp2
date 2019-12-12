@@ -42,6 +42,8 @@ objects:
             value: ${SOURCE_REPOSITORY_URL}
           - name: TEST_PROJECT
             value: ${TEST_PROJECT_NAME}
+          - name: NEXUS_URL
+            value: ${MAVEN_MIRROR_URL}
 - apiVersion: v1
   kind: BuildConfig
   metadata:
