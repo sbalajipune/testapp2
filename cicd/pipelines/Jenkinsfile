@@ -19,7 +19,7 @@ node("maven") {
 
     stage("Unit Testing & Analysis") {
 
-        dir('app') {
+        dir('cicd') {
             parallel(
                 'Test': {
                     sh "${mvnCmd} test"
