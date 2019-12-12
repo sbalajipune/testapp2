@@ -16,7 +16,7 @@ node("maven") {
 			sh "${mvnCmd} clean package -DskipTests -f ${params.APP_NAME}/pom.xml"
 			
 			sh "${mvnCmd} test"
-            step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+            //step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
 					
 			sh "${mvnCmd} sonar:sonar -Dsonar.host.url=${params.SONAR_URL} -DskipTests=true"		
         }
