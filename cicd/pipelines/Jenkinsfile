@@ -1,26 +1,21 @@
 node("maven") {
 
-    // download and configure all common cicd stuff		 
-    dir('cicd') {
-        // download all cicd required files		
-        git "${params.CICD_GIT_URL}"
-        // load openshift-utils functions (using this path as convention.. define a env var if desired...)		
-        openshiftUtils = load 'cicd/pipelines/functions/openshift-utils.groovy'
-        // load groovy functions		
-        newman = load 'cicd/pipelines/functions/newman.groovy'
-
-    }
-    // define maven with custom settings.xml (using this path as convention.. define a env var if desired...)
-    def mvnCmd = "mvn -s ${WORKSPACE}/cicd/cicd/maven/settings.xml"
-
     stage("Maven build") {
-
-        dir('app') {
-            // Get source code from repository
-            git "${params.CICD_GIT_URL}"
+		// download and configure all common cicd stuff		 
+		dir('cicd') {
+			// download all cicd required files		
+			git "${params.CICD_GIT_URL}"
+			// load openshift-utils functions (using this path as convention.. define a env var if desired...)		
+			openshiftUtils = load 'cicd/pipelines/functions/openshift-utils.groovy'
+			// load groovy functions		
+			newman = load 'cicd/pipelines/functions/newman.groovy'
+			// define maven with custom settings.xml (using this path as convention.. define a env var if desired...)
+			def mvnCmd = "mvn -s ${WORKSPACE}/cicd/cicd/maven/settings.xml"
             // extract info from pom.xml
             def pom = readMavenPom file: "${params.APP_NAME}/pom.xml"
 			sh "cd member-service"
+			sh "ls -ltr"
+			sh "pwd"
             sh "${mvnCmd} clean package -DskipTests"
         }
     }
