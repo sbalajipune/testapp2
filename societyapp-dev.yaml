@@ -892,7 +892,7 @@ parameters:
   displayName: Git Repository URL
   name: SOURCE_REPOSITORY_URL
   required: true
-  value: https://github.com/sbalajipune/testapp.git
+  value: https://github.com/sbalajipune/testapp2.git
 - displayName: PROSTGRESQL Database Service Name
   name: POSTGRES_HOST
   required: true
