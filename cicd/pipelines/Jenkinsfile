@@ -23,7 +23,7 @@ node("maven") {
     stage("Push artifact to Nexus") {
 
         echo "Pushing artifact to Nexux ${params.NEXUS_URL}"
-        dir('app') {
+        dir('cicd') {
 			def mvnCmd = "mvn -s ${WORKSPACE}/cicd/cicd/maven/settings.xml"
             // deploy
             sh "${mvnCmd} deploy -Dnexus.url=${params.NEXUS_URL}"
